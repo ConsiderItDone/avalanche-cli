@@ -40,6 +40,7 @@ func GetKeyNames(keyDir string, addEwoq bool) ([]string, error) {
 	}
 	if addEwoq {
 		userKeys = append(userKeys, "ewoq")
+		userKeys = append(userKeys, "fireblocks")
 	}
 	names = append(append(userKeys, subnetKeys...), cliKeys...)
 	return names, nil

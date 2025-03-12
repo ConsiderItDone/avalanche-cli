@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ava-labs/avalanche-cli/cmd/keycmd/fireblocks"
 	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
 	"github.com/ava-labs/avalanche-cli/pkg/contract"
 	clievm "github.com/ava-labs/avalanche-cli/pkg/evm"
@@ -244,11 +245,32 @@ func transferF(*cobra.Command, []string) error {
 	var kc keychain.Keychain
 	var sk *key.SoftKey
 	if keyName != "" {
-		sk, err = app.GetKey(keyName, network, false)
-		if err != nil {
-			return err
+		if keyName == "fireblocks" {
+			fireblocksPk, err := app.Prompt.CaptureString("Press enter absolute destination path to fireblocks key")
+			if err != nil {
+				return err
+			}
+
+			fireblocksAk, err := app.Prompt.CaptureString("Press enter fireblocks api key")
+			if err != nil {
+				return err
+			}
+
+			fireblocksVn, err := app.Prompt.CaptureString("Press enter vault name")
+			if err != nil {
+				return err
+			}
+			kc, err = fireblocks.NewFireblocksKeychain(fireblocksPk, fireblocksAk, fireblocksVn)
+			if err != nil {
+				return err
+			}
+		} else {
+			sk, err = app.GetKey(keyName, network, false)
+			if err != nil {
+				return err
+			}
+			kc = sk.KeyChain()
 		}
-		kc = sk.KeyChain()
 	} else {
 		ledgerDevice, err := ledger.New()
 		if err != nil {
