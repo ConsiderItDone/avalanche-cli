@@ -11,10 +11,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/gojek/heimdall/v7/hystrix"
-	"github.com/golang-jwt/jwt"
-	"github.com/shopspring/decimal"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -22,6 +18,11 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/gojek/heimdall/v7/hystrix"
+	"github.com/golang-jwt/jwt"
+	"github.com/shopspring/decimal"
+	log "github.com/sirupsen/logrus"
 )
 
 type FbKeyMgmt struct {
@@ -255,7 +256,7 @@ func (s *SDK) GetSupportedAssets() ([]AssetTypeResponse, error) {
 // GetVaultAccounts - gets all vault accounts for the tenant.
 func (s *SDK) GetVaultAccounts(namePrefix string, nameSuffix string, minAmountThreshold decimal.Decimal) ([]VaultAccount, error) {
 
-	query := "/v1/vault/accounts"
+	query := "/v1/vault/accounts_paged"
 	params := url.Values{}
 
 	if namePrefix != "" {
@@ -275,14 +276,16 @@ func (s *SDK) GetVaultAccounts(namePrefix string, nameSuffix string, minAmountTh
 	if err != nil {
 		return nil, err
 	}
-	var vaultAccounts []VaultAccount
+	var vaultAccounts struct {
+		Accounts []VaultAccount `json:"accounts"`
+	}
 	err = json.Unmarshal([]byte(returnedData), &vaultAccounts)
 	if err != nil {
 		log.Error(err)
 		return nil, err
 	}
 
-	return vaultAccounts, nil
+	return vaultAccounts.Accounts, nil
 }
 
 // GetVaultAccount - retrieve the vault account for the specified id.
@@ -556,11 +559,12 @@ func (s *SDK) CreateVaultAccount(name string, hiddenOnUI bool, customerRefID str
 
 }
 
-//CreateVaultAsset
+// CreateVaultAsset
 // creates a new wallet under the VaultAccount
 // args:
-//     vaultAccountId
-//     assetId
+//
+//	vaultAccountId
+//	assetId
 func (s *SDK) CreateVaultAsset(vaultAccountId string, assetId string, idempotencyKey string) (CreateVaultAssetResponse, error) {
 
 	cmd := fmt.Sprintf("/v1/vault/accounts/%s/%s", vaultAccountId, assetId)
@@ -711,7 +715,7 @@ func (s *SDK) CreateInternalWalletAsset(walletId string, assetId string, address
 
 }
 
-//GetEstimateTxFee
+// GetEstimateTxFee
 // Get the estimate fee for a tx.
 func (s *SDK) GetEstimateTxFee(assetId string, amount string, source TransferPeerPath, destination DestinationTransferPeerPath, operation string) (EstimatedTransactionFeeResponse, error) {
 
@@ -912,6 +916,80 @@ func (s *SDK) GetTransactionById(txId string) (TransactionDetails, error) {
 
 	return transactionDetails, nil
 
+}
+
+func (s *SDK) SignData(vaultid string, assetId string, data []byte) ([]byte, []byte, error) {
+	req, err := json.Marshal(map[string]any{
+		"source": map[string]any{
+			"type": "VAULT_ACCOUNT",
+			"id":   vaultid,
+		},
+		"assetId":   assetId,
+		"operation": "RAW",
+		"extraParameters": map[string]any{
+			"rawMessageData": map[string]any{
+				"messages": []map[string]any{
+					{
+						"content": hex.EncodeToString(data),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	resp, err := s.changeRequest("/v1/transactions", req, "", http.MethodPost)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	var tx struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(resp), &tx); err != nil {
+		return nil, nil, err
+	}
+
+	var (
+		receipt struct {
+			Status         TransactionStatus `json:"status"`
+			SignedMessages []struct {
+				PublicKey string `json:"publicKey"`
+				Signature struct {
+					FullSig string `json:"fullSig"`
+				}
+			} `json:"signedMessages"`
+		}
+		complete bool
+	)
+	for !complete {
+		time.Sleep(500 * time.Millisecond)
+		returnedData, err := s.getRequest(fmt.Sprintf("/v1/transactions/%s", tx.ID))
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := json.Unmarshal([]byte(returnedData), &receipt); err != nil {
+			return nil, nil, err
+		}
+		complete = receipt.Status == "COMPLETED" || receipt.Status == "FAILED"
+	}
+
+	if len(receipt.SignedMessages) != 1 {
+		return nil, nil, fmt.Errorf("signatures not found")
+	}
+
+	rawPublicKey, err := hex.DecodeString(receipt.SignedMessages[0].PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	rawSignature, err := hex.DecodeString(receipt.SignedMessages[0].Signature.FullSig)
+	if err != nil {
+		return nil, nil, err
+	}
+	return rawSignature, rawPublicKey, nil
 }
 
 func (s *SDK) GetExternalWallets() ([]ExternalWallet, error) {

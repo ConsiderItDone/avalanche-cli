@@ -1,12 +1,16 @@
 package fireblocks
 
 import (
+	"encoding/hex"
 	"io"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/crypto/keychain"
+	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
+	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/utils/set"
 )
 
@@ -16,38 +20,46 @@ var (
 )
 
 type FireblocksKeychain struct {
-	pk    string
-	ak    string
-	vault string
+	signer *FireblocksSigner
 }
 
 type FireblocksSigner struct {
-	sdk   *SDK
-	vault string
+	sdk     *SDK
+	vaultid string
+	assetid string
+
+	addr ids.ShortID
+	mu   sync.Mutex
 }
 
-func NewFireblocksKeychain(pk, ak, vault string) (*FireblocksKeychain, error) {
-	return &FireblocksKeychain{pk, ak, vault}, nil
+func NewFireblocksKeychain(pk, ak, vaultid, assetid string) (*FireblocksKeychain, error) {
+	signer, err := NewFireblocksSigner(pk, ak, vaultid, assetid)
+	if err != nil {
+		return nil, err
+	}
+
+	return &FireblocksKeychain{
+		signer: signer,
+	}, nil
 }
 
 // The returned Signer can provide a signature for [addr]
 func (fk *FireblocksKeychain) Get(addr ids.ShortID) (keychain.Signer, bool) {
-	signer, err := NewFireblocksSigner(fk.pk, fk.ak, fk.vault)
-	if err != nil {
+	if fk.signer.Address().Compare(addr) != 0 {
 		return nil, false
 	}
-	return signer, true
+	return fk.signer, true
 }
 
 // Returns the set of addresses for which the accessor keeps an associated
 // signer
-func (*FireblocksKeychain) Addresses() set.Set[ids.ShortID] {
+func (fk *FireblocksKeychain) Addresses() set.Set[ids.ShortID] {
 	s := set.NewSet[ids.ShortID](1)
-	s.Add(ids.ShortEmpty)
+	s.Add(fk.signer.Address())
 	return s
 }
 
-func NewFireblocksSigner(pk, ak, vault string) (*FireblocksSigner, error) {
+func NewFireblocksSigner(pk, ak, vaultid, assetid string) (*FireblocksSigner, error) {
 	f, err := os.Open(pk)
 	if err != nil {
 		return nil, err
@@ -60,19 +72,46 @@ func NewFireblocksSigner(pk, ak, vault string) (*FireblocksSigner, error) {
 	}
 
 	return &FireblocksSigner{
-		NewInstance(pkBytes, ak, "https://sandbox-api.fireblocks.io", time.Hour),
-		vault,
+		sdk:     NewInstance(pkBytes, ak, "https://sandbox-api.fireblocks.io", time.Hour),
+		vaultid: vaultid,
+		assetid: assetid,
+
+		addr: ids.ShortEmpty,
+		mu:   sync.Mutex{},
 	}, nil
 }
 
-func (*FireblocksSigner) SignHash([]byte) ([]byte, error) {
-	panic("impelement me")
+func (fs *FireblocksSigner) SignHash(hash []byte) ([]byte, error) {
+	sig, _, err := fs.sdk.SignData(fs.vaultid, fs.assetid, hash)
+	return sig, err
 }
 
-func (*FireblocksSigner) Sign([]byte) ([]byte, error) {
-	panic("impelement me")
+func (fs *FireblocksSigner) Sign(data []byte) ([]byte, error) {
+	return fs.SignHash(hashing.ComputeHash256(data))
 }
 
-func (*FireblocksSigner) Address() ids.ShortID {
-	panic("doesn't support")
+func (fs *FireblocksSigner) Address() ids.ShortID {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+
+	if fs.addr.Compare(ids.ShortEmpty) == 0 {
+		msg, err := hex.DecodeString("802a5a961895b3f8c6556e31d0960a5778d7135be7d04bbbadd5e406c4bac381")
+		if err != nil {
+			panic(err)
+		}
+
+		_, rawpb, err := fs.sdk.SignData(fs.vaultid, fs.assetid, msg)
+		if err != nil {
+			panic(err)
+		}
+
+		pb, err := secp256k1.ToPublicKey(rawpb)
+		if err != nil {
+			panic(err)
+		}
+
+		fs.addr = pb.Address()
+	}
+
+	return fs.addr
 }

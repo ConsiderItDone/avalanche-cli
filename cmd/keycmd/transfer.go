@@ -256,11 +256,17 @@ func transferF(*cobra.Command, []string) error {
 				return err
 			}
 
-			fireblocksVn, err := app.Prompt.CaptureString("Press enter vault name")
+			fireblocksVaultId, err := app.Prompt.CaptureString("Press enter vault id")
 			if err != nil {
 				return err
 			}
-			kc, err = fireblocks.NewFireblocksKeychain(fireblocksPk, fireblocksAk, fireblocksVn)
+
+			fireblocksAssetId, err := app.Prompt.CaptureString("Press enter asset id")
+			if err != nil {
+				return err
+			}
+
+			kc, err = fireblocks.NewFireblocksKeychain(fireblocksPk, fireblocksAk, fireblocksVaultId, fireblocksAssetId)
 			if err != nil {
 				return err
 			}
