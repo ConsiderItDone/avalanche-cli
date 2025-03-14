@@ -54,9 +54,7 @@ func (fk *FireblocksKeychain) Get(addr ids.ShortID) (keychain.Signer, bool) {
 // Returns the set of addresses for which the accessor keeps an associated
 // signer
 func (fk *FireblocksKeychain) Addresses() set.Set[ids.ShortID] {
-	s := set.NewSet[ids.ShortID](1)
-	s.Add(fk.signer.Address())
-	return s
+	return set.Of(fk.signer.Address())
 }
 
 func NewFireblocksSigner(apiAddr, pk, ak, vaultid, assetid string) (*FireblocksSigner, error) {
