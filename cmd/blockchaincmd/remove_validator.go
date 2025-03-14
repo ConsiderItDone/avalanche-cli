@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
 	"github.com/ava-labs/avalanche-cli/pkg/blockchain"
 	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
 	"github.com/ava-labs/avalanche-cli/pkg/constants"
@@ -98,19 +99,54 @@ func removeValidator(_ *cobra.Command, args []string) error {
 	}
 
 	// TODO: will estimate fee in subsecuent PR
+	var kc *keychain.Keychain
 	fee := uint64(0)
-	kc, err := keychain.GetKeychainFromCmdLineFlags(
-		app,
-		"to pay for transaction fees on P-Chain",
-		network,
-		keyName,
-		useEwoq,
-		useLedger,
-		ledgerAddresses,
-		fee,
-	)
-	if err != nil {
-		return err
+	if keyName == "fireblocks" {
+		fireblocksApiAddr, err := app.Prompt.CaptureString("Press enter fireblocks api address")
+		if err != nil {
+			return err
+		}
+
+		fireblocksPk, err := app.Prompt.CaptureString("Press enter absolute destination path to fireblocks key")
+		if err != nil {
+			return err
+		}
+
+		fireblocksAk, err := app.Prompt.CaptureString("Press enter fireblocks api key")
+		if err != nil {
+			return err
+		}
+
+		fireblocksVaultId, err := app.Prompt.CaptureString("Press enter vault id")
+		if err != nil {
+			return err
+		}
+
+		fireblocksAssetId, err := app.Prompt.CaptureString("Press enter asset id")
+		if err != nil {
+			return err
+		}
+
+		ckc, err := fireblocks.NewFireblocksKeychain(fireblocksApiAddr, fireblocksPk, fireblocksAk, fireblocksVaultId, fireblocksAssetId)
+		if err != nil {
+			return err
+		}
+
+		kc = keychain.NewKeychain(network, ckc, nil, nil)
+	} else {
+		kc, err = keychain.GetKeychainFromCmdLineFlags(
+			app,
+			"to pay for transaction fees on P-Chain",
+			network,
+			keyName,
+			useEwoq,
+			useLedger,
+			ledgerAddresses,
+			fee,
+		)
+		if err != nil {
+			return err
+		}
 	}
 	network.HandlePublicNetworkSimulation()
 
