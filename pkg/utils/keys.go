@@ -6,9 +6,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ava-labs/avalanche-cli/pkg/constants"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
+
+	"github.com/ava-labs/avalanche-cli/pkg/constants"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -40,8 +41,8 @@ func GetKeyNames(keyDir string, addEwoq bool) ([]string, error) {
 	}
 	if addEwoq {
 		userKeys = append(userKeys, "ewoq")
-		userKeys = append(userKeys, "fireblocks")
 	}
+	userKeys = append(userKeys, "fireblocks")
 	names = append(append(userKeys, subnetKeys...), cliKeys...)
 	return names, nil
 }
