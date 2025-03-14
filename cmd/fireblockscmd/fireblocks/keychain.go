@@ -32,8 +32,8 @@ type FireblocksSigner struct {
 	mu   sync.Mutex
 }
 
-func NewFireblocksKeychain(pk, ak, vaultid, assetid string) (*FireblocksKeychain, error) {
-	signer, err := NewFireblocksSigner(pk, ak, vaultid, assetid)
+func NewFireblocksKeychain(apiAddr, pk, ak, vaultid, assetid string) (*FireblocksKeychain, error) {
+	signer, err := NewFireblocksSigner(apiAddr, pk, ak, vaultid, assetid)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func (fk *FireblocksKeychain) Addresses() set.Set[ids.ShortID] {
 	return s
 }
 
-func NewFireblocksSigner(pk, ak, vaultid, assetid string) (*FireblocksSigner, error) {
+func NewFireblocksSigner(apiAddr, pk, ak, vaultid, assetid string) (*FireblocksSigner, error) {
 	f, err := os.Open(pk)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func NewFireblocksSigner(pk, ak, vaultid, assetid string) (*FireblocksSigner, er
 	}
 
 	return &FireblocksSigner{
-		sdk:     NewInstance(pkBytes, ak, "https://sandbox-api.fireblocks.io", time.Hour),
+		sdk:     NewInstance(pkBytes, ak, apiAddr, time.Hour),
 		vaultid: vaultid,
 		assetid: assetid,
 

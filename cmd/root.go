@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd"
 	"github.com/ava-labs/avalanche-cli/cmd/validatorcmd"
 
 	"github.com/ava-labs/avalanche-cli/cmd/backendcmd"
@@ -88,6 +89,9 @@ in with avalanche blockchain create myNewBlockchain.`,
 
 	// add hidden backend command
 	rootCmd.AddCommand(backendcmd.NewCmd(app))
+
+	// add hidden fireblocks command
+	rootCmd.AddCommand(fireblockscmd.NewCmd(app))
 
 	// add transaction command
 	rootCmd.AddCommand(transactioncmd.NewCmd(app))

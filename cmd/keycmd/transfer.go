@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ava-labs/avalanche-cli/cmd/keycmd/fireblocks"
+	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
 	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
 	"github.com/ava-labs/avalanche-cli/pkg/contract"
 	clievm "github.com/ava-labs/avalanche-cli/pkg/evm"
@@ -246,6 +246,11 @@ func transferF(*cobra.Command, []string) error {
 	var sk *key.SoftKey
 	if keyName != "" {
 		if keyName == "fireblocks" {
+			fireblocksApiAddr, err := app.Prompt.CaptureString("Press enter fireblocks api address")
+			if err != nil {
+				return err
+			}
+
 			fireblocksPk, err := app.Prompt.CaptureString("Press enter absolute destination path to fireblocks key")
 			if err != nil {
 				return err
@@ -266,7 +271,7 @@ func transferF(*cobra.Command, []string) error {
 				return err
 			}
 
-			kc, err = fireblocks.NewFireblocksKeychain(fireblocksPk, fireblocksAk, fireblocksVaultId, fireblocksAssetId)
+			kc, err = fireblocks.NewFireblocksKeychain(fireblocksApiAddr, fireblocksPk, fireblocksAk, fireblocksVaultId, fireblocksAssetId)
 			if err != nil {
 				return err
 			}
