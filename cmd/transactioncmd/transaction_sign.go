@@ -100,7 +100,7 @@ func signTx(_ *cobra.Command, args []string) error {
 			}
 		}
 	case models.Mainnet:
-		useLedger = true
+		useLedger = keyName != "fireblocks"
 		if keyName != "" {
 			return blockchaincmd.ErrStoredKeyOnMainnet
 		}
