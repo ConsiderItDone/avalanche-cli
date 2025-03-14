@@ -14,6 +14,7 @@ import (
 
 	"github.com/ava-labs/avalanche-cli/pkg/blockchain"
 
+	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
 	"github.com/ava-labs/avalanche-cli/cmd/interchaincmd/messengercmd"
 	"github.com/ava-labs/avalanche-cli/cmd/interchaincmd/relayercmd"
 	"github.com/ava-labs/avalanche-cli/cmd/networkcmd"
@@ -555,18 +556,54 @@ func deployBlockchain(cmd *cobra.Command, args []string) error {
 	// createSubnet: add subnet fee
 	fee := uint64(0)
 
-	kc, err := keychain.GetKeychainFromCmdLineFlags(
-		app,
-		constants.PayTxsFeesMsg,
-		network,
-		keyName,
-		useEwoq,
-		useLedger,
-		ledgerAddresses,
-		fee,
-	)
-	if err != nil {
-		return err
+	var kc *keychain.Keychain
+	if keyName == "fireblocks" {
+		useLedger = false
+		fireblocksApiAddr, err := app.Prompt.CaptureString("Press enter fireblocks api address")
+		if err != nil {
+			return err
+		}
+
+		fireblocksPk, err := app.Prompt.CaptureString("Press enter absolute destination path to fireblocks key")
+		if err != nil {
+			return err
+		}
+
+		fireblocksAk, err := app.Prompt.CaptureString("Press enter fireblocks api key")
+		if err != nil {
+			return err
+		}
+
+		fireblocksVaultId, err := app.Prompt.CaptureString("Press enter vault id")
+		if err != nil {
+			return err
+		}
+
+		fireblocksAssetId, err := app.Prompt.CaptureString("Press enter asset id")
+		if err != nil {
+			return err
+		}
+
+		ckc, err := fireblocks.NewFireblocksKeychain(fireblocksApiAddr, fireblocksPk, fireblocksAk, fireblocksVaultId, fireblocksAssetId)
+		if err != nil {
+			return err
+		}
+
+		kc = keychain.NewKeychain(network, ckc, nil, nil)
+	} else {
+		kc, err = keychain.GetKeychainFromCmdLineFlags(
+			app,
+			constants.PayTxsFeesMsg,
+			network,
+			keyName,
+			useEwoq,
+			useLedger,
+			ledgerAddresses,
+			fee,
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	availableBalance, err := utils.GetNetworkBalance(kc.Addresses().List(), network.Endpoint)
