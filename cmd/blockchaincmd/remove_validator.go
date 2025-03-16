@@ -8,6 +8,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ava-labs/avalanchego/api/info"
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
 	"github.com/ava-labs/avalanche-cli/pkg/blockchain"
 	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
@@ -25,11 +31,6 @@ import (
 	sdkutils "github.com/ava-labs/avalanche-cli/sdk/utils"
 	validatorsdk "github.com/ava-labs/avalanche-cli/sdk/validator"
 	validatormanagerSDK "github.com/ava-labs/avalanche-cli/sdk/validatormanager"
-	"github.com/ava-labs/avalanchego/api/info"
-	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/vms/platformvm/warp"
-	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/spf13/cobra"
 )
@@ -102,37 +103,12 @@ func removeValidator(_ *cobra.Command, args []string) error {
 	var kc *keychain.Keychain
 	fee := uint64(0)
 	if keyName == "fireblocks" {
-		fireblocksApiAddr, err := app.Prompt.CaptureString("Press enter fireblocks api address")
+		fireblocksKeychain, err := fireblocks.PromptFireblocks(app.Prompt)
 		if err != nil {
 			return err
 		}
 
-		fireblocksPk, err := app.Prompt.CaptureString("Press enter absolute destination path to fireblocks key")
-		if err != nil {
-			return err
-		}
-
-		fireblocksAk, err := app.Prompt.CaptureString("Press enter fireblocks api key")
-		if err != nil {
-			return err
-		}
-
-		fireblocksVaultId, err := app.Prompt.CaptureString("Press enter vault id")
-		if err != nil {
-			return err
-		}
-
-		fireblocksAssetId, err := app.Prompt.CaptureString("Press enter asset id")
-		if err != nil {
-			return err
-		}
-
-		ckc, err := fireblocks.NewFireblocksKeychain(fireblocksApiAddr, fireblocksPk, fireblocksAk, fireblocksVaultId, fireblocksAssetId)
-		if err != nil {
-			return err
-		}
-
-		kc = keychain.NewKeychain(network, ckc, nil, nil)
+		kc = keychain.NewKeychain(network, fireblocksKeychain, nil, nil)
 	} else {
 		kc, err = keychain.GetKeychainFromCmdLineFlags(
 			app,

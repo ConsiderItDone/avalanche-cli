@@ -24,16 +24,17 @@ type FireblocksKeychain struct {
 }
 
 type FireblocksSigner struct {
-	sdk     *SDK
-	vaultid string
-	assetid string
+	sdk *SDK
+
+	account      int
+	addressIndex int
 
 	addr ids.ShortID
 	mu   sync.Mutex
 }
 
-func NewFireblocksKeychain(apiAddr, pk, ak, vaultid, assetid string) (*FireblocksKeychain, error) {
-	signer, err := NewFireblocksSigner(apiAddr, pk, ak, vaultid, assetid)
+func NewFireblocksKeychain(apiAddr, privateKeyPath, apiKey string, account, addressIndex int) (*FireblocksKeychain, error) {
+	signer, err := NewFireblocksSigner(apiAddr, privateKeyPath, apiKey, account, addressIndex)
 	if err != nil {
 		return nil, err
 	}
@@ -57,8 +58,8 @@ func (fk *FireblocksKeychain) Addresses() set.Set[ids.ShortID] {
 	return set.Of(fk.signer.Address())
 }
 
-func NewFireblocksSigner(apiAddr, pk, ak, vaultid, assetid string) (*FireblocksSigner, error) {
-	f, err := os.Open(pk)
+func NewFireblocksSigner(apiAddr, privateKeyPath, apiKey string, account, addressIndex int) (*FireblocksSigner, error) {
+	f, err := os.Open(privateKeyPath)
 	if err != nil {
 		return nil, err
 	}
@@ -70,9 +71,9 @@ func NewFireblocksSigner(apiAddr, pk, ak, vaultid, assetid string) (*FireblocksS
 	}
 
 	return &FireblocksSigner{
-		sdk:     NewInstance(pkBytes, ak, apiAddr, time.Hour),
-		vaultid: vaultid,
-		assetid: assetid,
+		sdk:          NewInstance(pkBytes, apiKey, apiAddr, time.Hour),
+		account:      account,
+		addressIndex: addressIndex,
 
 		addr: ids.ShortEmpty,
 		mu:   sync.Mutex{},
@@ -80,7 +81,7 @@ func NewFireblocksSigner(apiAddr, pk, ak, vaultid, assetid string) (*FireblocksS
 }
 
 func (fs *FireblocksSigner) SignHash(hash []byte) ([]byte, error) {
-	sig, _, err := fs.sdk.SignData(fs.vaultid, fs.assetid, hash)
+	sig, _, err := fs.sdk.SignData(fs.account, fs.addressIndex, hash)
 	return sig, err
 }
 
@@ -98,7 +99,7 @@ func (fs *FireblocksSigner) Address() ids.ShortID {
 			panic(err)
 		}
 
-		_, rawpb, err := fs.sdk.SignData(fs.vaultid, fs.assetid, msg)
+		_, rawpb, err := fs.sdk.SignData(fs.account, fs.addressIndex, msg)
 		if err != nil {
 			panic(err)
 		}

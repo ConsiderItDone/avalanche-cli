@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ava-labs/avalanchego/ids"
+
 	"github.com/ava-labs/avalanche-cli/cmd/blockchaincmd"
 	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
 	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
@@ -16,7 +18,6 @@ import (
 	"github.com/ava-labs/avalanche-cli/pkg/subnet"
 	"github.com/ava-labs/avalanche-cli/pkg/txutils"
 	"github.com/ava-labs/avalanche-cli/pkg/ux"
-	"github.com/ava-labs/avalanchego/ids"
 
 	"github.com/spf13/cobra"
 )
@@ -152,37 +153,12 @@ func signTx(_ *cobra.Command, args []string) error {
 	// get keychain accessor
 	var kc *keychain.Keychain
 	if keyName == "fireblocks" {
-		fireblocksApiAddr, err := app.Prompt.CaptureString("Press enter fireblocks api address")
+		fireblocksKeychain, err := fireblocks.PromptFireblocks(app.Prompt)
 		if err != nil {
 			return err
 		}
 
-		fireblocksPk, err := app.Prompt.CaptureString("Press enter absolute destination path to fireblocks key")
-		if err != nil {
-			return err
-		}
-
-		fireblocksAk, err := app.Prompt.CaptureString("Press enter fireblocks api key")
-		if err != nil {
-			return err
-		}
-
-		fireblocksVaultId, err := app.Prompt.CaptureString("Press enter vault id")
-		if err != nil {
-			return err
-		}
-
-		fireblocksAssetId, err := app.Prompt.CaptureString("Press enter asset id")
-		if err != nil {
-			return err
-		}
-
-		ckc, err := fireblocks.NewFireblocksKeychain(fireblocksApiAddr, fireblocksPk, fireblocksAk, fireblocksVaultId, fireblocksAssetId)
-		if err != nil {
-			return err
-		}
-
-		kc = keychain.NewKeychain(network, ckc, nil, nil)
+		kc = keychain.NewKeychain(network, fireblocksKeychain, nil, nil)
 	} else {
 		kc, err = keychain.GetKeychain(app, false, useLedger, ledgerAddresses, keyName, network, 0)
 		if err != nil {

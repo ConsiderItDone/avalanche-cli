@@ -11,17 +11,18 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ava-labs/avalanche-cli/pkg/constants"
-	"github.com/ava-labs/avalanche-cli/pkg/key"
-	"github.com/ava-labs/avalanche-cli/pkg/models"
-	"github.com/ava-labs/avalanche-cli/pkg/utils"
-	"github.com/ava-labs/avalanche-cli/pkg/ux"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/manifoldco/promptui"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
 	"golang.org/x/mod/semver"
+
+	"github.com/ava-labs/avalanche-cli/pkg/constants"
+	"github.com/ava-labs/avalanche-cli/pkg/key"
+	"github.com/ava-labs/avalanche-cli/pkg/models"
+	"github.com/ava-labs/avalanche-cli/pkg/utils"
+	"github.com/ava-labs/avalanche-cli/pkg/ux"
 )
 
 type AddressFormat int64
@@ -864,12 +865,13 @@ func (*realPrompter) CaptureFutureDate(promptStr string, minDate time.Time) (tim
 // returns true [resp. false] if user chooses stored key [resp. ledger] option
 func (prompter *realPrompter) ChooseKeyOrLedger(goal string) (bool, error) {
 	const (
-		keyOption    = "Use stored key"
-		ledgerOption = "Use ledger"
+		keyOption        = "Use stored key"
+		ledgerOption     = "Use ledger"
+		fireblocksOption = "Use fireblocks"
 	)
 	option, err := prompter.CaptureList(
 		fmt.Sprintf("Which key should be used %s?", goal),
-		[]string{keyOption, ledgerOption},
+		[]string{keyOption, ledgerOption, fireblocksOption},
 	)
 	if err != nil {
 		return false, err

@@ -8,18 +8,6 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
-	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
-	"github.com/ava-labs/avalanche-cli/pkg/contract"
-	clievm "github.com/ava-labs/avalanche-cli/pkg/evm"
-	"github.com/ava-labs/avalanche-cli/pkg/ictt"
-	"github.com/ava-labs/avalanche-cli/pkg/key"
-	"github.com/ava-labs/avalanche-cli/pkg/models"
-	"github.com/ava-labs/avalanche-cli/pkg/networkoptions"
-	"github.com/ava-labs/avalanche-cli/pkg/prompts"
-	"github.com/ava-labs/avalanche-cli/pkg/utils"
-	"github.com/ava-labs/avalanche-cli/pkg/ux"
-	"github.com/ava-labs/avalanche-cli/pkg/vm"
 	"github.com/ava-labs/avalanchego/ids"
 	avagoconstants "github.com/ava-labs/avalanchego/utils/constants"
 	"github.com/ava-labs/avalanchego/utils/crypto/keychain"
@@ -36,6 +24,19 @@ import (
 	"github.com/ava-labs/coreth/plugin/evm/atomic"
 	goethereumcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
+
+	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
+	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
+	"github.com/ava-labs/avalanche-cli/pkg/contract"
+	clievm "github.com/ava-labs/avalanche-cli/pkg/evm"
+	"github.com/ava-labs/avalanche-cli/pkg/ictt"
+	"github.com/ava-labs/avalanche-cli/pkg/key"
+	"github.com/ava-labs/avalanche-cli/pkg/models"
+	"github.com/ava-labs/avalanche-cli/pkg/networkoptions"
+	"github.com/ava-labs/avalanche-cli/pkg/prompts"
+	"github.com/ava-labs/avalanche-cli/pkg/utils"
+	"github.com/ava-labs/avalanche-cli/pkg/ux"
+	"github.com/ava-labs/avalanche-cli/pkg/vm"
 )
 
 const (
@@ -246,32 +247,7 @@ func transferF(*cobra.Command, []string) error {
 	var sk *key.SoftKey
 	if keyName != "" {
 		if keyName == "fireblocks" {
-			fireblocksApiAddr, err := app.Prompt.CaptureString("Press enter fireblocks api address")
-			if err != nil {
-				return err
-			}
-
-			fireblocksPk, err := app.Prompt.CaptureString("Press enter absolute destination path to fireblocks key")
-			if err != nil {
-				return err
-			}
-
-			fireblocksAk, err := app.Prompt.CaptureString("Press enter fireblocks api key")
-			if err != nil {
-				return err
-			}
-
-			fireblocksVaultId, err := app.Prompt.CaptureString("Press enter vault id")
-			if err != nil {
-				return err
-			}
-
-			fireblocksAssetId, err := app.Prompt.CaptureString("Press enter asset id")
-			if err != nil {
-				return err
-			}
-
-			kc, err = fireblocks.NewFireblocksKeychain(fireblocksApiAddr, fireblocksPk, fireblocksAk, fireblocksVaultId, fireblocksAssetId)
+			kc, err = fireblocks.PromptFireblocks(app.Prompt)
 			if err != nil {
 				return err
 			}

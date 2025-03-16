@@ -14,6 +14,19 @@ import (
 
 	"github.com/ava-labs/avalanche-cli/pkg/blockchain"
 
+	anrutils "github.com/ava-labs/avalanche-network-runner/utils"
+	"github.com/ava-labs/avalanchego/api/info"
+	"github.com/ava-labs/avalanchego/ids"
+	avagoutils "github.com/ava-labs/avalanchego/utils"
+	"github.com/ava-labs/avalanchego/utils/formatting/address"
+	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/set"
+	"github.com/ava-labs/avalanchego/utils/units"
+	"github.com/ava-labs/avalanchego/vms/platformvm/fx"
+	"github.com/ava-labs/avalanchego/vms/platformvm/signer"
+	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
+	"github.com/ava-labs/avalanchego/vms/platformvm/warp/message"
+
 	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
 	"github.com/ava-labs/avalanche-cli/cmd/interchaincmd/messengercmd"
 	"github.com/ava-labs/avalanche-cli/cmd/interchaincmd/relayercmd"
@@ -32,18 +45,6 @@ import (
 	"github.com/ava-labs/avalanche-cli/pkg/utils"
 	"github.com/ava-labs/avalanche-cli/pkg/ux"
 	"github.com/ava-labs/avalanche-cli/pkg/vm"
-	anrutils "github.com/ava-labs/avalanche-network-runner/utils"
-	"github.com/ava-labs/avalanchego/api/info"
-	"github.com/ava-labs/avalanchego/ids"
-	avagoutils "github.com/ava-labs/avalanchego/utils"
-	"github.com/ava-labs/avalanchego/utils/formatting/address"
-	"github.com/ava-labs/avalanchego/utils/logging"
-	"github.com/ava-labs/avalanchego/utils/set"
-	"github.com/ava-labs/avalanchego/utils/units"
-	"github.com/ava-labs/avalanchego/vms/platformvm/fx"
-	"github.com/ava-labs/avalanchego/vms/platformvm/signer"
-	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
-	"github.com/ava-labs/avalanchego/vms/platformvm/warp/message"
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
@@ -558,38 +559,12 @@ func deployBlockchain(cmd *cobra.Command, args []string) error {
 
 	var kc *keychain.Keychain
 	if keyName == "fireblocks" {
-		useLedger = false
-		fireblocksApiAddr, err := app.Prompt.CaptureString("Press enter fireblocks api address")
+		fireblocksKeychain, err := fireblocks.PromptFireblocks(app.Prompt)
 		if err != nil {
 			return err
 		}
 
-		fireblocksPk, err := app.Prompt.CaptureString("Press enter absolute destination path to fireblocks key")
-		if err != nil {
-			return err
-		}
-
-		fireblocksAk, err := app.Prompt.CaptureString("Press enter fireblocks api key")
-		if err != nil {
-			return err
-		}
-
-		fireblocksVaultId, err := app.Prompt.CaptureString("Press enter vault id")
-		if err != nil {
-			return err
-		}
-
-		fireblocksAssetId, err := app.Prompt.CaptureString("Press enter asset id")
-		if err != nil {
-			return err
-		}
-
-		ckc, err := fireblocks.NewFireblocksKeychain(fireblocksApiAddr, fireblocksPk, fireblocksAk, fireblocksVaultId, fireblocksAssetId)
-		if err != nil {
-			return err
-		}
-
-		kc = keychain.NewKeychain(network, ckc, nil, nil)
+		kc = keychain.NewKeychain(network, fireblocksKeychain, nil, nil)
 	} else {
 		kc, err = keychain.GetKeychainFromCmdLineFlags(
 			app,

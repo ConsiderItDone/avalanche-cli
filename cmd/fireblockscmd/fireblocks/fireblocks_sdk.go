@@ -918,19 +918,16 @@ func (s *SDK) GetTransactionById(txId string) (TransactionDetails, error) {
 
 }
 
-func (s *SDK) SignData(vaultid string, assetId string, data []byte) ([]byte, []byte, error) {
+func (s *SDK) SignData(account, addressIndex int, data []byte) ([]byte, []byte, error) {
 	req, err := json.Marshal(map[string]any{
-		"source": map[string]any{
-			"type": "VAULT_ACCOUNT",
-			"id":   vaultid,
-		},
-		"assetId":   assetId,
 		"operation": "RAW",
 		"extraParameters": map[string]any{
 			"rawMessageData": map[string]any{
+				"algorithm": "MPC_ECDSA_SECP256K1",
 				"messages": []map[string]any{
 					{
-						"content": hex.EncodeToString(data),
+						"content":        hex.EncodeToString(data),
+						"derivationPath": []int{44, 0, account, 0, addressIndex},
 					},
 				},
 			},
@@ -954,7 +951,8 @@ func (s *SDK) SignData(vaultid string, assetId string, data []byte) ([]byte, []b
 
 	var (
 		receipt struct {
-			Status         TransactionStatus `json:"status"`
+			Status         TransactionStatus    `json:"status"`
+			SubStatus      TransactionSubStatus `json:"subStatus"`
 			SignedMessages []struct {
 				PublicKey string `json:"publicKey"`
 				Signature struct {
@@ -973,7 +971,11 @@ func (s *SDK) SignData(vaultid string, assetId string, data []byte) ([]byte, []b
 		if err := json.Unmarshal([]byte(returnedData), &receipt); err != nil {
 			return nil, nil, err
 		}
-		complete = receipt.Status == "COMPLETED" || receipt.Status == "FAILED"
+		complete = receipt.Status == "COMPLETED" || receipt.Status == TransactionFailed
+	}
+
+	if receipt.Status == TransactionFailed {
+		return nil, nil, fmt.Errorf("failed to sign transaction: %s", receipt.SubStatus)
 	}
 
 	if len(receipt.SignedMessages) != 1 {
