@@ -7,6 +7,10 @@ import (
 
 	"github.com/ava-labs/avalanche-cli/pkg/blockchain"
 
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/units"
+	"github.com/spf13/cobra"
+
 	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
 	"github.com/ava-labs/avalanche-cli/pkg/constants"
 	"github.com/ava-labs/avalanche-cli/pkg/keychain"
@@ -15,14 +19,12 @@ import (
 	"github.com/ava-labs/avalanche-cli/pkg/utils"
 	"github.com/ava-labs/avalanche-cli/pkg/ux"
 	"github.com/ava-labs/avalanche-cli/sdk/validator"
-	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/utils/units"
-	"github.com/spf13/cobra"
 )
 
 var (
 	keyName         string
 	useLedger       bool
+	useFireblocks   bool
 	useEwoq         bool
 	ledgerAddresses []string
 	balanceAVAX     float64
@@ -80,6 +82,7 @@ func increaseBalance(_ *cobra.Command, _ []string) error {
 		keyName,
 		useEwoq,
 		useLedger,
+		useFireblocks,
 		ledgerAddresses,
 		fee,
 	)

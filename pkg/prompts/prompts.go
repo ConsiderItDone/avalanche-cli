@@ -27,12 +27,29 @@ import (
 
 type AddressFormat int64
 
+type KeyType int64
+
 const (
 	Undefined AddressFormat = iota
 	PChainFormat
 	EVMFormat
 	XChainFormat
 )
+
+const (
+	UndefinedKeyType KeyType = iota
+	StoredKey
+	Ledger
+	Fireblocks
+)
+
+type FireblocksParams struct {
+	UseSandbox     bool
+	PrivateKeyPath string
+	APIKey         string
+	Account        int
+	AddressIndex   int
+}
 
 const (
 	Yes = "Yes"
@@ -122,7 +139,7 @@ type Prompter interface {
 	CapturePChainAddress(promptStr string, network models.Network) (string, error)
 	CaptureXChainAddress(promptStr string, network models.Network) (string, error)
 	CaptureFutureDate(promptStr string, minDate time.Time) (time.Time, error)
-	ChooseKeyOrLedger(goal string) (bool, error)
+	ChooseKeyOrLedger(goal string) (KeyType, error)
 }
 
 type realPrompter struct{}
@@ -863,7 +880,7 @@ func (*realPrompter) CaptureFutureDate(promptStr string, minDate time.Time) (tim
 }
 
 // returns true [resp. false] if user chooses stored key [resp. ledger] option
-func (prompter *realPrompter) ChooseKeyOrLedger(goal string) (bool, error) {
+func (prompter *realPrompter) ChooseKeyOrLedger(goal string) (KeyType, error) {
 	const (
 		keyOption        = "Use stored key"
 		ledgerOption     = "Use ledger"
@@ -874,9 +891,18 @@ func (prompter *realPrompter) ChooseKeyOrLedger(goal string) (bool, error) {
 		[]string{keyOption, ledgerOption, fireblocksOption},
 	)
 	if err != nil {
-		return false, err
+		return UndefinedKeyType, err
 	}
-	return option == keyOption, nil
+	switch option {
+	case keyOption:
+		return StoredKey, nil
+	case ledgerOption:
+		return Ledger, nil
+	case fireblocksOption:
+		return Fireblocks, nil
+	}
+
+	return UndefinedKeyType, fmt.Errorf("Unknown key type %s", option)
 }
 
 func contains[T comparable](list []T, element T) bool {
@@ -953,22 +979,36 @@ func GetSubnetAuthKeys(prompt Prompter, walletKeys []string, controlKeys []strin
 	return subnetAuthKeys, nil
 }
 
-func GetKeyOrLedger(prompt Prompter, goal string, keyDir string, includeEwoq bool) (bool, string, error) {
-	useStoredKey, err := prompt.ChooseKeyOrLedger(goal)
+func GetKeyOrLedger(prompt Prompter, goal string, keyDir string, includeEwoq bool) (KeyType, string, *FireblocksParams, error) {
+	keyType, err := prompt.ChooseKeyOrLedger(goal)
 	if err != nil {
-		return false, "", err
+		return UndefinedKeyType, "", nil, err
 	}
-	if !useStoredKey {
-		return true, "", nil
+	if keyType == Ledger {
+		return keyType, "", nil, nil
 	}
-	keyName, err := CaptureKeyName(prompt, goal, keyDir, includeEwoq)
-	if err != nil {
-		if errors.Is(err, errNoKeys) {
-			ux.Logger.PrintToUser("No private keys have been found. Create a new one with `avalanche key create`")
+
+	if keyType == StoredKey {
+		keyName, err := CaptureKeyName(prompt, goal, keyDir, includeEwoq)
+		if err != nil {
+			if errors.Is(err, errNoKeys) {
+				ux.Logger.PrintToUser("No private keys have been found. Create a new one with `avalanche key create`")
+			}
+			return UndefinedKeyType, "", nil, err
 		}
-		return false, "", err
+		return StoredKey, keyName, nil, nil
 	}
-	return false, keyName, nil
+
+	if keyType == Fireblocks {
+		fireblocksParams, err := PromptFireblocks(prompt)
+		if err != nil {
+			return UndefinedKeyType, "", nil, err
+		}
+
+		return Fireblocks, "", fireblocksParams, nil
+	}
+
+	return UndefinedKeyType, "", nil, fmt.Errorf("unknown key type %d", keyType)
 }
 
 func CaptureKeyName(prompt Prompter, goal string, keyDir string, includeEwoq bool) (string, error) {
@@ -1204,4 +1244,65 @@ func CaptureKeyAddress(
 		return k.C(), nil
 	}
 	return "", nil
+}
+
+func PromptFireblocks(prompt Prompter) (*FireblocksParams, error) {
+	useSandbox, err := chooseSandboxOrProd(prompt)
+	if err != nil {
+		return nil, err
+	}
+
+	privateKeyPath, err := prompt.CaptureString("Fireblocks private key path")
+	if err != nil {
+		return nil, err
+	}
+	privateKeyPath = strings.TrimSpace(privateKeyPath)
+
+	apiKey, err := prompt.CaptureString("Fireblocks api key")
+	if err != nil {
+		return nil, err
+	}
+
+	account, err := prompt.CaptureInt("Fireblocks bip44 account", func(n int) error {
+		return nil
+	})
+
+	addressIndex, err := prompt.CaptureInt("Fireblocks bip44 address index", func(n int) error {
+		return nil
+	})
+
+	return &FireblocksParams{
+		UseSandbox:     useSandbox,
+		PrivateKeyPath: privateKeyPath,
+		APIKey:         apiKey,
+		Account:        account,
+		AddressIndex:   addressIndex,
+	}, nil
+
+	//var apiEndpoint string
+	//if useSandbox {
+	//	apiEndpoint = "https://sandbox-api.fireblocks.io"
+	//} else {
+	//	apiEndpoint = "https://api.fireblocks.io"
+	//}
+	//
+	//fireblocksKc, err := NewFireblocksKeychain(apiEndpoint, privateKeyPath, apiKey, account, addressIndex)
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//return fireblocksKc, nil
+}
+
+// chooseSandboxOrProd returns true if Sandbox environment is selected
+func chooseSandboxOrProd(prompt Prompter) (bool, error) {
+	const (
+		sandboxOption = "Sandbox"
+		prodOption    = "Production"
+	)
+	option, err := prompt.CaptureList("What Fireblocks environment should be used?", []string{sandboxOption, prodOption})
+	if err != nil {
+		return false, err
+	}
+	return option == sandboxOption, nil
 }

@@ -11,6 +11,14 @@ import (
 
 	"github.com/ava-labs/avalanche-cli/pkg/node"
 
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/utils/crypto/bls"
+	"github.com/ava-labs/avalanchego/utils/units"
+	"github.com/ava-labs/avalanchego/vms/platformvm"
+	"github.com/ava-labs/avalanchego/vms/platformvm/signer"
+	"github.com/spf13/cobra"
+	"golang.org/x/exp/maps"
+
 	blockchaincmd "github.com/ava-labs/avalanche-cli/cmd/blockchaincmd"
 	"github.com/ava-labs/avalanche-cli/pkg/ansible"
 	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
@@ -20,19 +28,13 @@ import (
 	"github.com/ava-labs/avalanche-cli/pkg/subnet"
 	"github.com/ava-labs/avalanche-cli/pkg/utils"
 	"github.com/ava-labs/avalanche-cli/pkg/ux"
-	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/utils/crypto/bls"
-	"github.com/ava-labs/avalanchego/utils/units"
-	"github.com/ava-labs/avalanchego/vms/platformvm"
-	"github.com/ava-labs/avalanchego/vms/platformvm/signer"
-	"github.com/spf13/cobra"
-	"golang.org/x/exp/maps"
 )
 
 var (
 	keyName                      string
 	useEwoq                      bool
 	useLedger                    bool
+	useFireblocks                bool
 	useStaticIP                  bool
 	awsProfile                   string
 	ledgerAddresses              []string
@@ -59,6 +61,7 @@ Network.`,
 
 	cmd.Flags().StringVarP(&keyName, "key", "k", "", "select the key to use [fuji only]")
 	cmd.Flags().BoolVarP(&useLedger, "ledger", "g", false, "use ledger instead of key (always true on mainnet, defaults to false on fuji/devnet)")
+	cmd.Flags().BoolVar(&useFireblocks, "fireblocks", false, "use Fireblocks instead of key")
 	cmd.Flags().BoolVarP(&useEwoq, "ewoq", "e", false, "use ewoq key [fuji/devnet only]")
 	cmd.Flags().StringSliceVar(&ledgerAddresses, "ledger-addrs", []string{}, "use the given ledger addresses")
 
@@ -317,6 +320,7 @@ func validatePrimaryNetwork(_ *cobra.Command, args []string) error {
 		keyName,
 		useEwoq,
 		useLedger,
+		useFireblocks,
 		ledgerAddresses,
 		fee,
 	)

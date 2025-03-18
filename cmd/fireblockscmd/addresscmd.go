@@ -8,6 +8,7 @@ import (
 
 	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
 	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
+	"github.com/ava-labs/avalanche-cli/pkg/prompts"
 )
 
 var (
@@ -39,7 +40,11 @@ func newAddressCmd() *cobra.Command {
 }
 
 func addresscmd(_ *cobra.Command, _ []string) error {
-	keychain, err := fireblocks.PromptFireblocks(app.Prompt)
+	fbParams, err := prompts.PromptFireblocks(app.Prompt)
+	if err != nil {
+		return err
+	}
+	keychain, err := fireblocks.NewFireblocksKeychain(fbParams)
 	if err != nil {
 		return err
 	}
@@ -48,6 +53,7 @@ func addresscmd(_ *cobra.Command, _ []string) error {
 	if !exists {
 		return fmt.Errorf("no address")
 	}
+	fmt.Printf("ShortID: %s\n", addr)
 	pChainAddress, err := address.Format(chainAlias, chainHrp, addr.Bytes())
 	if err != nil {
 		return err

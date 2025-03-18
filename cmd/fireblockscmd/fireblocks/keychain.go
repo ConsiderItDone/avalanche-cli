@@ -12,6 +12,8 @@ import (
 	"github.com/ava-labs/avalanchego/utils/crypto/secp256k1"
 	"github.com/ava-labs/avalanchego/utils/hashing"
 	"github.com/ava-labs/avalanchego/utils/set"
+
+	"github.com/ava-labs/avalanche-cli/pkg/prompts"
 )
 
 var (
@@ -33,8 +35,15 @@ type FireblocksSigner struct {
 	mu   sync.Mutex
 }
 
-func NewFireblocksKeychain(apiAddr, privateKeyPath, apiKey string, account, addressIndex int) (*FireblocksKeychain, error) {
-	signer, err := NewFireblocksSigner(apiAddr, privateKeyPath, apiKey, account, addressIndex)
+func NewFireblocksKeychain(params *prompts.FireblocksParams) (keychain.Keychain, error) {
+	var apiEndpoint string
+	if params.UseSandbox {
+		apiEndpoint = "https://sandbox-api.fireblocks.io"
+	} else {
+		apiEndpoint = "https://api.fireblocks.io"
+	}
+
+	signer, err := NewFireblocksSigner(apiEndpoint, params.PrivateKeyPath, params.APIKey, params.Account, params.AddressIndex)
 	if err != nil {
 		return nil, err
 	}

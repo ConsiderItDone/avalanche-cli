@@ -9,7 +9,6 @@ import (
 	"github.com/ava-labs/avalanchego/ids"
 
 	"github.com/ava-labs/avalanche-cli/cmd/blockchaincmd"
-	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
 	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
 	"github.com/ava-labs/avalanche-cli/pkg/constants"
 	"github.com/ava-labs/avalanche-cli/pkg/keychain"
@@ -28,6 +27,7 @@ var (
 	inputTxPath     string
 	keyName         string
 	useLedger       bool
+	useFireblocks   bool
 	ledgerAddresses []string
 )
 
@@ -44,6 +44,7 @@ func newTransactionSignCmd() *cobra.Command {
 	cmd.Flags().StringVar(&inputTxPath, inputTxPathFlag, "", "Path to the transaction file for signing")
 	cmd.Flags().StringVarP(&keyName, "key", "k", "", "select the key to use [fuji only]")
 	cmd.Flags().BoolVarP(&useLedger, "ledger", "g", false, "use ledger instead of key (always true on mainnet, defaults to false on fuji)")
+	cmd.Flags().BoolVar(&useFireblocks, "fireblocks", false, "use Fireblocks")
 	cmd.Flags().StringSliceVar(&ledgerAddresses, "ledger-addrs", []string{}, "use the given ledger addresses")
 	return cmd
 }
@@ -80,6 +81,9 @@ func signTx(_ *cobra.Command, args []string) error {
 		return blockchaincmd.ErrMutuallyExlusiveKeyLedger
 	}
 
+	var keyType prompts.KeyType
+	var fb *prompts.FireblocksParams
+
 	// we need network to decide if ledger is forced (mainnet)
 	network, err := txutils.GetNetwork(tx)
 	if err != nil {
@@ -88,25 +92,31 @@ func signTx(_ *cobra.Command, args []string) error {
 	switch network.Kind {
 	case models.Local:
 		if !useLedger && keyName == "" {
-			useLedger, keyName, err = prompts.GetKeyOrLedger(app.Prompt, "sign transaction", app.GetKeyDir(), true)
+			keyType, keyName, fb, err = prompts.GetKeyOrLedger(app.Prompt, "sign transaction", app.GetKeyDir(), true)
 			if err != nil {
 				return err
 			}
 		}
 	case models.Fuji:
 		if !useLedger && keyName == "" {
-			useLedger, keyName, err = prompts.GetKeyOrLedger(app.Prompt, "sign transaction", app.GetKeyDir(), false)
+			keyType, keyName, fb, err = prompts.GetKeyOrLedger(app.Prompt, "sign transaction", app.GetKeyDir(), false)
 			if err != nil {
 				return err
 			}
 		}
 	case models.Mainnet:
-		useLedger = keyName != "fireblocks"
+		useLedger = true
 		if keyName != "" {
 			return blockchaincmd.ErrStoredKeyOnMainnet
 		}
 	default:
 		return errors.New("unsupported network")
+	}
+	if keyType == prompts.Ledger {
+		useLedger = true
+	}
+	if keyType == prompts.Fireblocks {
+		useFireblocks = true
 	}
 
 	// we need subnet ID for the wallet signing validation + process
@@ -151,19 +161,9 @@ func signTx(_ *cobra.Command, args []string) error {
 	}
 
 	// get keychain accessor
-	var kc *keychain.Keychain
-	if keyName == "fireblocks" {
-		fireblocksKeychain, err := fireblocks.PromptFireblocks(app.Prompt)
-		if err != nil {
-			return err
-		}
-
-		kc = keychain.NewKeychain(network, fireblocksKeychain, nil, nil)
-	} else {
-		kc, err = keychain.GetKeychain(app, false, useLedger, ledgerAddresses, keyName, network, 0)
-		if err != nil {
-			return err
-		}
+	kc, err := keychain.GetKeychain(app, false, useLedger, useFireblocks, fb, ledgerAddresses, keyName, network, 0)
+	if err != nil {
+		return err
 	}
 
 	// add control keys to the keychain whenever possible

@@ -18,7 +18,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 
-	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
 	"github.com/ava-labs/avalanche-cli/pkg/blockchain"
 	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
 	"github.com/ava-labs/avalanche-cli/pkg/constants"
@@ -203,27 +202,19 @@ func addValidator(cmd *cobra.Command, args []string) error {
 	// TODO: will estimate fee in subsecuent PR
 	var kc *keychain.Keychain
 	fee := uint64(0)
-	if keyName == "fireblocks" {
-		fireblocksKeychain, err := fireblocks.PromptFireblocks(app.Prompt)
-		if err != nil {
-			return err
-		}
-
-		kc = keychain.NewKeychain(network, fireblocksKeychain, nil, nil)
-	} else {
-		kc, err = keychain.GetKeychainFromCmdLineFlags(
-			app,
-			"to pay for transaction fees on P-Chain",
-			network,
-			keyName,
-			useEwoq,
-			useLedger,
-			ledgerAddresses,
-			fee,
-		)
-		if err != nil {
-			return err
-		}
+	kc, err = keychain.GetKeychainFromCmdLineFlags(
+		app,
+		"to pay for transaction fees on P-Chain",
+		network,
+		keyName,
+		useEwoq,
+		useLedger,
+		useFireblocks,
+		ledgerAddresses,
+		fee,
+	)
+	if err != nil {
+		return err
 	}
 
 	sovereign := sc.Sovereign

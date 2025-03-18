@@ -218,6 +218,9 @@ func transferF(*cobra.Command, []string) error {
 		return fmt.Errorf("transfer from %s to %s is not supported", senderDesc, receiverDesc)
 	}
 
+	var keyType prompts.KeyType
+	var fb *prompts.FireblocksParams
+
 	if keyName == "" && ledgerIndex == wrongLedgerIndexVal {
 		var useLedger bool
 		goalStr := "as the sender address"
@@ -231,9 +234,12 @@ func transferF(*cobra.Command, []string) error {
 			ux.Logger.PrintToUser("Tokens will be transferred to the same account address on the other chain")
 			goalStr = "as the sender/receiver address"
 		}
-		useLedger, keyName, err = prompts.GetKeyOrLedger(app.Prompt, goalStr, app.GetKeyDir(), true)
+		keyType, keyName, fb, err = prompts.GetKeyOrLedger(app.Prompt, goalStr, app.GetKeyDir(), true)
 		if err != nil {
 			return err
+		}
+		if keyType == prompts.Ledger {
+			useLedger = true
 		}
 		if useLedger {
 			ledgerIndex, err = app.Prompt.CaptureUint32("Ledger index to use")
@@ -245,28 +251,28 @@ func transferF(*cobra.Command, []string) error {
 
 	var kc keychain.Keychain
 	var sk *key.SoftKey
-	if keyName != "" {
-		if keyName == "fireblocks" {
-			kc, err = fireblocks.PromptFireblocks(app.Prompt)
+	if keyType == prompts.StoredKey {
+		sk, err = app.GetKey(keyName, network, false)
+		if err != nil {
+			return err
+		}
+		kc = sk.KeyChain()
+	} else {
+		if keyType == prompts.Fireblocks {
+			kc, err = fireblocks.NewFireblocksKeychain(fb)
 			if err != nil {
 				return err
 			}
 		} else {
-			sk, err = app.GetKey(keyName, network, false)
+			ledgerDevice, err := ledger.New()
 			if err != nil {
 				return err
 			}
-			kc = sk.KeyChain()
-		}
-	} else {
-		ledgerDevice, err := ledger.New()
-		if err != nil {
-			return err
-		}
-		ledgerIndices := []uint32{ledgerIndex}
-		kc, err = keychain.NewLedgerKeychainFromIndices(ledgerDevice, ledgerIndices)
-		if err != nil {
-			return err
+			ledgerIndices := []uint32{ledgerIndex}
+			kc, err = keychain.NewLedgerKeychainFromIndices(ledgerDevice, ledgerIndices)
+			if err != nil {
+				return err
+			}
 		}
 	}
 	usingLedger := ledgerIndex != wrongLedgerIndexVal

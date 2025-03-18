@@ -27,7 +27,6 @@ import (
 	"github.com/ava-labs/avalanchego/vms/platformvm/txs"
 	"github.com/ava-labs/avalanchego/vms/platformvm/warp/message"
 
-	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
 	"github.com/ava-labs/avalanche-cli/cmd/interchaincmd/messengercmd"
 	"github.com/ava-labs/avalanche-cli/cmd/interchaincmd/relayercmd"
 	"github.com/ava-labs/avalanche-cli/cmd/networkcmd"
@@ -61,6 +60,7 @@ var (
 	userProvidedAvagoVersion        string
 	outputTxPath                    string
 	useLedger                       bool
+	useFireblocks                   bool
 	useLocalMachine                 bool
 	useEwoq                         bool
 	ledgerAddresses                 []string
@@ -136,6 +136,7 @@ so you can take your locally tested Blockchain and deploy it on Fuji or Mainnet.
 	cmd.Flags().StringVar(&outputTxPath, "output-tx-path", "", "file path of the blockchain creation tx")
 	cmd.Flags().BoolVarP(&useEwoq, "ewoq", "e", false, "use ewoq key [fuji/devnet deploy only]")
 	cmd.Flags().BoolVarP(&useLedger, "ledger", "g", false, "use ledger instead of key (always true on mainnet, defaults to false on fuji/devnet)")
+	cmd.Flags().BoolVar(&useFireblocks, "fireblocks", false, "use Fireblocks instead of key")
 	cmd.Flags().StringSliceVar(&ledgerAddresses, "ledger-addrs", []string{}, "use the given ledger addresses")
 	cmd.Flags().StringVarP(&subnetIDStr, "subnet-id", "u", "", "do not create a subnet, deploy the blockchain into the given subnet id")
 	cmd.Flags().Uint32Var(&mainnetChainID, "mainnet-chain-id", 0, "use different ChainID for mainnet deployment")
@@ -556,29 +557,19 @@ func deployBlockchain(cmd *cobra.Command, args []string) error {
 	// !subnetonly: add blockchain fee
 	// createSubnet: add subnet fee
 	fee := uint64(0)
-
-	var kc *keychain.Keychain
-	if keyName == "fireblocks" {
-		fireblocksKeychain, err := fireblocks.PromptFireblocks(app.Prompt)
-		if err != nil {
-			return err
-		}
-
-		kc = keychain.NewKeychain(network, fireblocksKeychain, nil, nil)
-	} else {
-		kc, err = keychain.GetKeychainFromCmdLineFlags(
-			app,
-			constants.PayTxsFeesMsg,
-			network,
-			keyName,
-			useEwoq,
-			useLedger,
-			ledgerAddresses,
-			fee,
-		)
-		if err != nil {
-			return err
-		}
+	kc, err := keychain.GetKeychainFromCmdLineFlags(
+		app,
+		constants.PayTxsFeesMsg,
+		network,
+		keyName,
+		useEwoq,
+		useLedger,
+		useFireblocks,
+		ledgerAddresses,
+		fee,
+	)
+	if err != nil {
+		return err
 	}
 
 	availableBalance, err := utils.GetNetworkBalance(kc.Addresses().List(), network.Endpoint)

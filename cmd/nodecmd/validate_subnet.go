@@ -10,6 +10,11 @@ import (
 
 	"github.com/ava-labs/avalanche-cli/pkg/node"
 
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/ava-labs/avalanchego/vms/platformvm/status"
+	"github.com/spf13/cobra"
+	"golang.org/x/exp/maps"
+
 	blockchaincmd "github.com/ava-labs/avalanche-cli/cmd/blockchaincmd"
 	"github.com/ava-labs/avalanche-cli/pkg/ansible"
 	"github.com/ava-labs/avalanche-cli/pkg/cobrautils"
@@ -19,10 +24,6 @@ import (
 	"github.com/ava-labs/avalanche-cli/pkg/ssh"
 	"github.com/ava-labs/avalanche-cli/pkg/subnet"
 	"github.com/ava-labs/avalanche-cli/pkg/ux"
-	"github.com/ava-labs/avalanchego/ids"
-	"github.com/ava-labs/avalanchego/vms/platformvm/status"
-	"github.com/spf13/cobra"
-	"golang.org/x/exp/maps"
 )
 
 var avoidSubnetValidationChecks bool
@@ -226,6 +227,7 @@ func validateSubnet(_ *cobra.Command, args []string) error {
 		keyName,
 		useEwoq,
 		useLedger,
+		useFireblocks,
 		ledgerAddresses,
 		fee,
 	)

@@ -9,6 +9,9 @@ import (
 	"math"
 	"time"
 
+	"github.com/ava-labs/avalanchego/ids"
+	"github.com/spf13/cobra"
+
 	"github.com/ava-labs/avalanche-cli/cmd/blockchaincmd"
 	"github.com/ava-labs/avalanche-cli/cmd/nodecmd"
 	"github.com/ava-labs/avalanche-cli/pkg/application"
@@ -20,14 +23,13 @@ import (
 	"github.com/ava-labs/avalanche-cli/pkg/prompts"
 	"github.com/ava-labs/avalanche-cli/pkg/subnet"
 	"github.com/ava-labs/avalanche-cli/pkg/ux"
-	"github.com/ava-labs/avalanchego/ids"
-	"github.com/spf13/cobra"
 )
 
 var (
 	globalNetworkFlags           networkoptions.NetworkFlags
 	keyName                      string
 	useLedger                    bool
+	useFireblocks                bool
 	ledgerAddresses              []string
 	nodeIDStr                    string
 	weight                       uint64
@@ -62,6 +64,7 @@ in the Primary Network`,
 	cmd.Flags().StringVar(&startTimeStr, "start-time", "", "UTC start time when this validator starts validating, in 'YYYY-MM-DD HH:MM:SS' format")
 	cmd.Flags().DurationVar(&duration, "staking-period", 0, "how long this validator will be staking")
 	cmd.Flags().BoolVarP(&useLedger, "ledger", "g", false, "use ledger instead of key (always true on mainnet, defaults to false on fuji)")
+	cmd.Flags().BoolVar(&useFireblocks, "fireblocks", false, "use Fireblocks")
 	cmd.Flags().StringSliceVar(&ledgerAddresses, "ledger-addrs", []string{}, "use the given ledger addresses")
 	cmd.Flags().StringVar(&publicKey, "public-key", "", "set the BLS public key of the validator to add")
 	cmd.Flags().StringVar(&pop, "proof-of-possession", "", "set the BLS proof of possession of the validator to add")
@@ -135,12 +138,21 @@ func addValidator(_ *cobra.Command, _ []string) error {
 		return ErrMutuallyExlusiveKeyLedger
 	}
 
+	var keyType prompts.KeyType
+	var fb *prompts.FireblocksParams
+
 	switch network.Kind {
 	case models.Fuji:
 		if !useLedger && keyName == "" {
-			useLedger, keyName, err = prompts.GetKeyOrLedger(app.Prompt, constants.PayTxsFeesMsg, app.GetKeyDir(), false)
+			keyType, keyName, fb, err = prompts.GetKeyOrLedger(app.Prompt, constants.PayTxsFeesMsg, app.GetKeyDir(), false)
 			if err != nil {
 				return err
+			}
+			if keyType == prompts.Ledger {
+				useLedger = true
+			}
+			if keyType == prompts.Fireblocks {
+				useFireblocks = true
 			}
 		}
 	case models.Mainnet:
@@ -180,7 +192,7 @@ func addValidator(_ *cobra.Command, _ []string) error {
 
 	// TODO: will estimate fee in subsecuent PR
 	fee := uint64(0)
-	kc, err := keychain.GetKeychain(app, false, useLedger, ledgerAddresses, keyName, network, fee)
+	kc, err := keychain.GetKeychain(app, false, useLedger, useFireblocks, fb, ledgerAddresses, keyName, network, fee)
 	if err != nil {
 		return err
 	}

@@ -6,13 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ava-labs/avalanche-cli/cmd/flags"
-	"github.com/ava-labs/avalanche-cli/pkg/application"
-	"github.com/ava-labs/avalanche-cli/pkg/key"
-	"github.com/ava-labs/avalanche-cli/pkg/models"
-	"github.com/ava-labs/avalanche-cli/pkg/prompts"
-	"github.com/ava-labs/avalanche-cli/pkg/utils"
-	"github.com/ava-labs/avalanche-cli/pkg/ux"
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/utils/crypto/keychain"
 	"github.com/ava-labs/avalanchego/utils/crypto/ledger"
@@ -21,6 +14,15 @@ import (
 	"github.com/ava-labs/avalanchego/utils/set"
 	"github.com/ava-labs/avalanchego/utils/units"
 	"github.com/ava-labs/avalanchego/vms/platformvm"
+
+	"github.com/ava-labs/avalanche-cli/cmd/fireblockscmd/fireblocks"
+	"github.com/ava-labs/avalanche-cli/cmd/flags"
+	"github.com/ava-labs/avalanche-cli/pkg/application"
+	"github.com/ava-labs/avalanche-cli/pkg/key"
+	"github.com/ava-labs/avalanche-cli/pkg/models"
+	"github.com/ava-labs/avalanche-cli/pkg/prompts"
+	"github.com/ava-labs/avalanche-cli/pkg/utils"
+	"github.com/ava-labs/avalanche-cli/pkg/ux"
 )
 
 const (
@@ -113,6 +115,7 @@ func GetKeychainFromCmdLineFlags(
 	keyName string,
 	useEwoq bool,
 	useLedger bool,
+	useFireblocks bool,
 	ledgerAddresses []string,
 	requiredFunds uint64,
 ) (*Keychain, error) {
@@ -124,23 +127,37 @@ func GetKeychainFromCmdLineFlags(
 	if !flags.EnsureMutuallyExclusive([]bool{useLedger, useEwoq, keyName != ""}) {
 		return nil, ErrMutuallyExlusiveKeySource
 	}
+	var keyType prompts.KeyType
+	var fb *prompts.FireblocksParams
 	switch {
 	case network.Kind == models.Local:
 		// prompt the user if no key source was provided
 		if !useEwoq && !useLedger && keyName == "" {
 			var err error
-			useLedger, keyName, err = prompts.GetKeyOrLedger(app.Prompt, keychainGoal, app.GetKeyDir(), true)
+			keyType, keyName, fb, err = prompts.GetKeyOrLedger(app.Prompt, keychainGoal, app.GetKeyDir(), true)
 			if err != nil {
 				return nil, err
+			}
+			if keyType == prompts.Ledger {
+				useLedger = true
+			}
+			if keyType == prompts.Fireblocks {
+				useFireblocks = true
 			}
 		}
 	case network.Kind == models.Devnet:
 		// prompt the user if no key source was provided
 		if !useEwoq && !useLedger && keyName == "" {
 			var err error
-			useLedger, keyName, err = prompts.GetKeyOrLedger(app.Prompt, keychainGoal, app.GetKeyDir(), true)
+			keyType, keyName, fb, err = prompts.GetKeyOrLedger(app.Prompt, keychainGoal, app.GetKeyDir(), true)
 			if err != nil {
 				return nil, err
+			}
+			if keyType == prompts.Ledger {
+				useLedger = true
+			}
+			if keyType == prompts.Fireblocks {
+				useFireblocks = true
 			}
 		}
 	case network.Kind == models.Fuji:
@@ -150,9 +167,12 @@ func GetKeychainFromCmdLineFlags(
 		// prompt the user if no key source was provided
 		if !useLedger && keyName == "" {
 			var err error
-			useLedger, keyName, err = prompts.GetKeyOrLedger(app.Prompt, keychainGoal, app.GetKeyDir(), false)
+			keyType, keyName, fb, err = prompts.GetKeyOrLedger(app.Prompt, keychainGoal, app.GetKeyDir(), false)
 			if err != nil {
 				return nil, err
+			}
+			if keyType == prompts.Fireblocks {
+				useFireblocks = true
 			}
 		}
 	case network.Kind == models.Mainnet:
@@ -160,19 +180,25 @@ func GetKeychainFromCmdLineFlags(
 		if keyName != "" || useEwoq {
 			return nil, ErrStoredKeyOrEwoqOnMainnet
 		}
-		useLedger = true
+		var err error
+		_, keyName, fb, err = prompts.GetKeyOrLedger(app.Prompt, keychainGoal, app.GetKeyDir(), false)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	network.HandlePublicNetworkSimulation()
 
 	// get keychain accessor
-	return GetKeychain(app, useEwoq, useLedger, ledgerAddresses, keyName, network, requiredFunds)
+	return GetKeychain(app, useEwoq, useLedger, useFireblocks, fb, ledgerAddresses, keyName, network, requiredFunds)
 }
 
 func GetKeychain(
 	app *application.Avalanche,
 	useEwoq bool,
 	useLedger bool,
+	useFireblocks bool,
+	fbParams *prompts.FireblocksParams,
 	ledgerAddresses []string,
 	keyName string,
 	network models.Network,
@@ -215,6 +241,14 @@ func GetKeychain(
 			return nil, err
 		}
 		return NewKeychain(network, kc, ledgerDevice, ledgerIndices), nil
+	}
+	if useFireblocks {
+		fbKeychain, err := fireblocks.NewFireblocksKeychain(fbParams)
+		if err != nil {
+			return nil, err
+		}
+
+		return NewKeychain(network, fbKeychain, nil, nil), nil
 	}
 	if useEwoq {
 		sf, err := app.GetKey("ewoq", network, false)
