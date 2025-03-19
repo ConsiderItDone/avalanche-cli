@@ -2,6 +2,7 @@ package fireblocks
 
 import (
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"sync"
@@ -108,17 +109,28 @@ func (fs *FireblocksSigner) Address() ids.ShortID {
 			panic(err)
 		}
 
-		_, rawpb, err := fs.sdk.SignData(fs.account, fs.addressIndex, msg)
+		rawSignature, rawPublicKey, err := fs.sdk.SignData(fs.account, fs.addressIndex, msg)
 		if err != nil {
 			panic(err)
 		}
 
-		pb, err := secp256k1.ToPublicKey(rawpb)
+		pb, err := secp256k1.ToPublicKey(rawPublicKey)
 		if err != nil {
 			panic(err)
 		}
 
 		fs.addr = pb.Address()
+		fmt.Printf("PB1 ShortID %s\n", fs.addr)
+
+		pb2, err := secp256k1.RecoverPublicKeyFromHash(msg, rawSignature)
+		if err != nil {
+			panic(err)
+		}
+		pb2b := pb2.Bytes()
+		fmt.Printf("PB2 public key %s\n", hex.EncodeToString(pb2b))
+
+		pb2Addr := pb2.Address()
+		fmt.Printf("PB2 ShortID %s\n", pb2Addr)
 	}
 
 	return fs.addr

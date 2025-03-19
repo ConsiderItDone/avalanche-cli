@@ -16,6 +16,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -927,7 +928,7 @@ func (s *SDK) SignData(account, addressIndex int, data []byte) ([]byte, []byte, 
 				"messages": []map[string]any{
 					{
 						"content":        hex.EncodeToString(data),
-						"derivationPath": []int{44, 0, account, 0, addressIndex},
+						"derivationPath": []int{44, 9000, account, 0, addressIndex},
 					},
 				},
 			},
@@ -956,6 +957,9 @@ func (s *SDK) SignData(account, addressIndex int, data []byte) ([]byte, []byte, 
 			SignedMessages []struct {
 				PublicKey string `json:"publicKey"`
 				Signature struct {
+					R       string `json:"r"`
+					S       string `json:"s"`
+					V       int    `json:"v"`
 					FullSig string `json:"fullSig"`
 				}
 			} `json:"signedMessages"`
@@ -982,12 +986,16 @@ func (s *SDK) SignData(account, addressIndex int, data []byte) ([]byte, []byte, 
 		return nil, nil, fmt.Errorf("signatures not found")
 	}
 
-	rawPublicKey, err := hex.DecodeString(receipt.SignedMessages[0].PublicKey)
+	signedMessage := receipt.SignedMessages[0]
+
+	rawPublicKey, err := hex.DecodeString(signedMessage.PublicKey)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	rawSignature, err := hex.DecodeString(receipt.SignedMessages[0].Signature.FullSig)
+	sig := signedMessage.Signature
+
+	rawSignature, err := hex.DecodeString(sig.R + sig.S + "0" + strconv.Itoa(sig.V))
 	if err != nil {
 		return nil, nil, err
 	}
