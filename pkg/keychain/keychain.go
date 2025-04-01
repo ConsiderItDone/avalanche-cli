@@ -204,7 +204,7 @@ func GetKeychain(
 	network models.Network,
 	requiredFunds uint64,
 ) (*Keychain, error) {
-	if !useEwoq && !useLedger && keyName == "" {
+	if !useEwoq && !useLedger && !useFireblocks && keyName == "" {
 		return nil, fmt.Errorf("one of the options ewoq/ledger/keyName must be provided")
 	}
 	// get keychain accessor

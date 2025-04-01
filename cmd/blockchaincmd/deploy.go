@@ -666,7 +666,7 @@ func deployBlockchain(cmd *cobra.Command, args []string) error {
 
 	if createSubnet {
 		if sidecar.Sovereign {
-			sameControlKey = true
+			sameControlKey = false
 		}
 		controlKeys, threshold, err = promptOwners(
 			kc,
